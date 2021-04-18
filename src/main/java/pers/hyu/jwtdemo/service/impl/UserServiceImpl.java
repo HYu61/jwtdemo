@@ -1,7 +1,11 @@
 package pers.hyu.jwtdemo.service.impl;
 
+import org.modelmapper.ModelMapper;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -14,10 +18,12 @@ import pers.hyu.jwtdemo.exception.UserServiceException;
 import pers.hyu.jwtdemo.io.entity.UserEntity;
 import pers.hyu.jwtdemo.io.repository.UserRepository;
 import pers.hyu.jwtdemo.service.UserService;
+import pers.hyu.jwtdemo.share.dto.AddressDto;
 import pers.hyu.jwtdemo.share.dto.UserDto;
 import pers.hyu.jwtdemo.share.util.EntityUtil;
 
 import java.util.ArrayList;
+import java.util.List;
 
 @Service
 public class UserServiceImpl implements UserService {
@@ -38,16 +44,25 @@ public class UserServiceImpl implements UserService {
         if(storiedUser != null){
             throw new UserServiceException(ErrorMessages.RECORD_ALREADY_EXISTS.getErrorMessage());
         }
-        UserEntity newUserEntity = new UserEntity();
+//        UserEntity newUserEntity = new UserEntity();
+        for (int i = 0; i < userDto.getAddressList().size(); i++) {
+            AddressDto addressDto = userDto.getAddressList().get(i);
+            addressDto.setAddressId(entityUtil.generateId(30));
+            addressDto.setUserDetail(userDto);
+            userDto.getAddressList().set(i, addressDto);
+        }
+
 
         userDto.setUserId(entityUtil.generateId(30));
         userDto.setEncryptedPassword(bCryptPasswordEncoder.encode(userDto.getPassword()));
 
-        BeanUtils.copyProperties(userDto, newUserEntity);
+//        BeanUtils.copyProperties(userDto, newUserEntity);
+
+        UserEntity newUserEntity = new ModelMapper().map(userDto,UserEntity.class);
 
         UserEntity storedUser = userRepository.save(newUserEntity);
-        UserDto newUserDto = new UserDto();
-        BeanUtils.copyProperties(storedUser, newUserDto);
+        UserDto newUserDto = new ModelMapper().map(storedUser, UserDto.class);
+//        BeanUtils.copyProperties(storedUser, newUserDto);
         return newUserDto;
     }
 
@@ -58,8 +73,9 @@ public class UserServiceImpl implements UserService {
         if (userEntity == null) {
             throw new UsernameNotFoundException(email);
         }
-        UserDto returnValue = new UserDto();
-        BeanUtils.copyProperties(userEntity, returnValue);
+        UserDto returnValue = new ModelMapper().map(userEntity, UserDto.class);
+//        BeanUtils.copyProperties(userEntity, returnValue);
+
         return returnValue;
     }
 
@@ -70,15 +86,15 @@ public class UserServiceImpl implements UserService {
         if(user == null){
             throw new UserServiceException(ErrorMessages.NO_RECORD_FOUND.getErrorMessage());
         }
-        UserDto result = new UserDto();
-        BeanUtils.copyProperties(user, result);
+        UserDto result = new ModelMapper().map(user, UserDto.class);
+//        BeanUtils.copyProperties(user, result);
         return result;
     }
 
     @Transactional(propagation = Propagation.REQUIRED)
     @Override
     public UserDto editUserByUserId(String userId, UserDto editedUserDto) {
-        UserDto returnValue = new UserDto();
+
 
         UserEntity userEntity = userRepository.findByUserId(userId);
         if (userEntity == null) {
@@ -90,7 +106,8 @@ public class UserServiceImpl implements UserService {
         UserEntity updatedUserEntity = userRepository.save(userEntity);
 
 
-        BeanUtils.copyProperties(updatedUserEntity, returnValue);
+        UserDto returnValue = new ModelMapper().map(updatedUserEntity, UserDto.class);
+//        BeanUtils.copyProperties(updatedUserEntity, returnValue);
         return returnValue;
     }
 
@@ -102,6 +119,28 @@ public class UserServiceImpl implements UserService {
             throw new UserServiceException(ErrorMessages.NO_RECORD_FOUND.getErrorMessage());
         }
         userRepository.delete(userEntity);
+    }
+
+    @Transactional(readOnly = true)
+    @Override
+    public List<UserDto> getAllUsers(int page, int limit) {
+        List<UserDto> returnValue = new ArrayList<>();
+
+        // the first page is 0
+        if (page > 0) {
+            page -= 1;
+        }
+        Pageable pageResult = PageRequest.of(page, limit);
+        Page<UserEntity> userEntityPage = userRepository.findAll(pageResult);
+        List<UserEntity> userEntityList = userEntityPage.getContent();
+
+        for (UserEntity userEntity : userEntityList
+        ) {
+            UserDto userDto = new ModelMapper().map(userEntity, UserDto.class);
+//            BeanUtils.copyProperties(userEntity, userDto);
+            returnValue.add(userDto);
+        }
+        return returnValue;
     }
 
     @Transactional(readOnly = true)

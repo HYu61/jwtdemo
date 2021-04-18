@@ -7,6 +7,8 @@ public class UserResp {
     private String firstName;
     private String lastName;
     private String email;
+    private List<AddressResp> addressList;
+
 
     public String getUserId() {
         return userId;
@@ -40,4 +42,11 @@ public class UserResp {
         this.email = email;
     }
 
+    public List<AddressResp> getAddressList() {
+        return addressList;
+    }
+
+    public void setAddressList(List<AddressResp> addressList) {
+        this.addressList = addressList;
+    }
 }

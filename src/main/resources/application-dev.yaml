@@ -20,3 +20,5 @@ server:
     include-stacktrace: never
   servlet:
     context-path: /jwtdemo
+
+page-limit: 5
