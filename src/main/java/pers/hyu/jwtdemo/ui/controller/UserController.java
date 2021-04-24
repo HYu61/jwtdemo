@@ -6,9 +6,7 @@ import io.swagger.annotations.ApiImplicitParams;
 import io.swagger.annotations.ApiOperation;
 import org.modelmapper.ModelMapper;
 import org.modelmapper.TypeToken;
-import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.hateoas.CollectionModel;
 import org.springframework.hateoas.EntityModel;
 import org.springframework.hateoas.Link;
@@ -203,5 +201,18 @@ public class UserController {
 
         // can also user EntityModel.of
         return EntityModel.of(returnValue, Arrays.asList(userLink, addressListLink, selfLink));
+    }
+
+    //Get the email verification for user sign up
+    @GetMapping(value = "/email_verification", produces = MediaType.APPLICATION_JSON_VALUE)
+    @CrossOrigin("*")
+    public OperationStatusModel verifyEmailToken(@RequestParam("token") String token){
+        OperationStatusModel result = new OperationStatusModel();
+        result.setOperation(Operation.VERIFY_EMAIL.name());
+
+        boolean isVerified = userService.isEmailTokenVerified(token);
+        result.setOperationResult(isVerified?RequestOperationStatus.SUCCESS.name():RequestOperationStatus.FAILED.name());
+
+        return result;
     }
 }

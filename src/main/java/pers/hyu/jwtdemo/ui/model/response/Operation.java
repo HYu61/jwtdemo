@@ -1,5 +1,6 @@
 package pers.hyu.jwtdemo.ui.model.response;
 
 public enum Operation {
-    DELETE
+    DELETE,
+    VERIFY_EMAIL
 }

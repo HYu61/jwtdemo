@@ -6,6 +6,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -20,6 +21,7 @@ import pers.hyu.jwtdemo.io.repository.UserRepository;
 import pers.hyu.jwtdemo.service.UserService;
 import pers.hyu.jwtdemo.share.dto.AddressDto;
 import pers.hyu.jwtdemo.share.dto.UserDto;
+import pers.hyu.jwtdemo.share.util.AmazonSES;
 import pers.hyu.jwtdemo.share.util.EntityUtil;
 
 import java.util.ArrayList;
@@ -52,10 +54,13 @@ public class UserServiceImpl implements UserService {
             userDto.getAddressList().set(i, addressDto);
         }
 
-
-        userDto.setUserId(entityUtil.generateId(30));
+        String userId = entityUtil.generateId(30);
+        userDto.setUserId(userId);
         userDto.setEncryptedPassword(bCryptPasswordEncoder.encode(userDto.getPassword()));
 
+        // set email token for user sign up and later for verify
+        userDto.setEmailVerificationToken(entityUtil.generateEmailToken(userId));
+        userDto.setEmailVerificationStatus(false);
 //        BeanUtils.copyProperties(userDto, newUserEntity);
 
         UserEntity newUserEntity = new ModelMapper().map(userDto,UserEntity.class);
@@ -63,6 +68,9 @@ public class UserServiceImpl implements UserService {
         UserEntity storedUser = userRepository.save(newUserEntity);
         UserDto newUserDto = new ModelMapper().map(storedUser, UserDto.class);
 //        BeanUtils.copyProperties(storedUser, newUserDto);
+
+        // send the email verify email
+        new AmazonSES().sendVerifyEmail(userDto);
         return newUserDto;
     }
 
@@ -143,6 +151,21 @@ public class UserServiceImpl implements UserService {
         return returnValue;
     }
 
+
+    @Transactional(propagation = Propagation.REQUIRED)
+    @Override
+    public boolean isEmailTokenVerified(String token) {
+//        boolean result = false;
+        UserEntity userEntity = userRepository.findByEmailVerificationToken(token);
+        if(userEntity != null && !entityUtil.emailTokenHasExpired(token)){
+            userEntity.setEmailVerificationToken(null);
+            userEntity.setEmailVerificationStatus(true);
+            userRepository.save(userEntity); // change the verify status to true
+            return true;
+        }
+        return false;
+    }
+
     @Transactional(readOnly = true)
     @Override
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
@@ -150,6 +173,8 @@ public class UserServiceImpl implements UserService {
         if(userEntity == null){
             throw new UsernameNotFoundException(email);
         }
-        return new User(userEntity.getEmail(), userEntity.getEncryptedPassword(),new ArrayList<>());
+//        return new User(userEntity.getEmail(), userEntity.getEncryptedPassword(),new ArrayList<>());
+        return new User(userEntity.getEmail(), userEntity.getEncryptedPassword(), userEntity.getEmailVerificationStatus(),
+        true, true, true, new ArrayList<>());
     }
 }

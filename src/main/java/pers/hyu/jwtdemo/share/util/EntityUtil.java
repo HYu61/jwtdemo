@@ -1,7 +1,10 @@
 package pers.hyu.jwtdemo.share.util;
 
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.SignatureAlgorithm;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
+import pers.hyu.jwtdemo.security.SecurityConstants;
 
 import java.lang.reflect.Field;
 import java.util.Date;
@@ -26,6 +29,35 @@ public class EntityUtil {
 
     }
 
+    /**
+     * Generate the email token for user sign up verification
+     * @param userId
+     * @return
+     */
+    public String generateEmailToken(String userId) {
+        String emailToken = Jwts.builder().setSubject(userId)
+                .setExpiration(new Date(System.currentTimeMillis() + SecurityConstants.EXPIRATION_TIME))
+                .signWith(SignatureAlgorithm.HS512, SecurityConstants.getTokenSecret())
+                .compact();
+        return emailToken;
+    }
+
+    /**
+     * Check if the email token is expired.
+     * @param token
+     * @return
+     */
+    public boolean emailTokenHasExpired(String token) {
+        Date emailTokenExpirationDate = Jwts.parser()
+                .setSigningKey(SecurityConstants.getTokenSecret())
+                .parseClaimsJws(token)
+                .getBody()
+                .getExpiration();
+//        Date now = new Date();
+        return emailTokenExpirationDate.before(new Date());
+
+    }
+
     
     public boolean isAnyFieldUnset(Object object) throws IllegalAccessException {
         for (Field f: object.getClass().getDeclaredFields()
@@ -45,5 +77,7 @@ public class EntityUtil {
         }
         return stringBuilder.toString();
     }
+
+
 
 }
