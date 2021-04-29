@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Sign up a new account</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script language="javascript">
+        function isEmpty(str) {
+            return (!str || str.trim().length === 0)
+
+        }
+
+        function createUser() {
+
+
+            let firstName = $("#first_name").val();
+            let lastName = $("#last_name").val();
+            let email = $("#email").val();
+            let password = $("#password").val();
+            let rePassword = $("#password_confirmation").val();
+
+
+            if (isEmpty(password) || isEmpty(firstName) || isEmpty(lastName) || isEmpty(email)) {
+                alert("All fields are required!!!");
+                return;
+            }
+            if (rePassword !== password) {
+                alert("Password does not match");
+                return;
+            }
+
+            let data = {"firstName": firstName, "lastName": lastName, "email": email, "password": password};
+            console.log(data)
+
+            $.ajax({
+                statusCode: {
+                    500: function () {
+                        $("email").css("color", "red")
+                        alert("Email Already Exists!!!")
+
+                    }
+                },
+                url: "http://localhost:8080/jwtdemo/users",
+                method: "POST",
+                data: JSON.stringify(data),
+                contentType: "application/json; charset=utf-8",
+                // dataType:"json",
+                success: function (res) {
+                    $(".pass").val("");
+                    // $("form").remove();
+
+                    if (res.userId != null) {
+                        $("form").remove();
+                        $('#successful-result').attr("style", "display:block !important;")
+                        $('#failed-result').attr("style", "display:none !important;")
+                    } else {
+                        $("#ee").css("color", "red")
+                        $('#successful-result').attr("style", "display:none !important;")
+                        $('#failed-result').attr("style", "display:block !important;")
+                    }
+                }
+
+            })
+
+        }
+    </script>
+</head>
+<body>
+
+
+<div class="container">
+    <div class="row centered-form pb-3">
+        <div class="col-xs-12 col-sm-8 col-md-4 col-sm-offset-2 col-md-offset-4">
+            <div class="panel panel-default">
+                <div class="panel-heading">
+                    <h3 class="panel-title">Please sign up for JWTDEMO</h3>
+                </div>
+                <div class="panel-body">
+                    <form role="form">
+                        <div class="row">
+                            <div class="col-xs-6 col-sm-6 col-md-6">
+                                <div class="form-group">
+                                    <input type="text" name="first_name" id="first_name" class="form-control input-sm"
+                                           placeholder="First Name">
+                                </div>
+                            </div>
+                            <div class="col-xs-6 col-sm-6 col-md-6">
+                                <div class="form-group">
+                                    <input type="text" name="last_name" id="last_name" class="form-control input-sm"
+                                           placeholder="Last Name">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <input type="email" name="email" id="email" class="form-control input-sm"
+                                   placeholder="Email Address">
+                        </div>
+
+                        <div class="row">
+                            <div class="col-xs-6 col-sm-6 col-md-6">
+                                <div class="form-group">
+                                    <input type="password" name="password" id="password" class="form-control input-sm"
+                                           placeholder="Password">
+                                </div>
+                            </div>
+                            <div class="col-xs-6 col-sm-6 col-md-6">
+                                <div class="form-group">
+                                    <input type="password" name="password_confirmation" id="password_confirmation"
+                                           class="form-control input-sm" placeholder="Confirm Password">
+                                </div>
+                            </div>
+                        </div>
+
+                        <input type="button" value="Register" class="btn btn-info btn-block" onclick="createUser()">
+
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="successful-result" style="display: none" >
+        <h3>We have send a verification link to your email, please click that
+            link to verify your registration.</h3>
+    </div>
+    <div id="failed-result" style="display: none">
+        <h3>Can not send the link to your email address</h3></div>
+</div>
+
+</body>
+</html>
