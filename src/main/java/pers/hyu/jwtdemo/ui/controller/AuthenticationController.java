@@ -1,9 +1,6 @@
 package pers.hyu.jwtdemo.ui.controller;
 
-import io.swagger.annotations.ApiOperation;
-import io.swagger.annotations.ApiResponse;
-import io.swagger.annotations.ApiResponses;
-import io.swagger.annotations.ResponseHeader;
+import io.swagger.annotations.*;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -13,6 +10,7 @@ import pers.hyu.jwtdemo.ui.model.request.LoginRequestModel;
 import java.awt.*;
 
 @RestController
+@Api(tags = "Login api")
 public class AuthenticationController {
     @ApiOperation("User login")
     @ApiResponses(value = {

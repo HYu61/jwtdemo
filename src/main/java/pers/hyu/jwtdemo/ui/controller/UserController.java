@@ -20,6 +20,9 @@ import pers.hyu.jwtdemo.service.UserService;
 import pers.hyu.jwtdemo.share.dto.AddressDto;
 import pers.hyu.jwtdemo.share.dto.UserDto;
 import pers.hyu.jwtdemo.share.util.EntityUtil;
+import pers.hyu.jwtdemo.ui.model.request.LoginRequestModel;
+import pers.hyu.jwtdemo.ui.model.request.ResetPasswordModel;
+import pers.hyu.jwtdemo.ui.model.request.ResetPasswordRequestModel;
 import pers.hyu.jwtdemo.ui.model.request.UserDetailsRequestModel;
 import pers.hyu.jwtdemo.ui.model.response.*;
 
@@ -31,6 +34,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/users")
+//@CrossOrigin(origins = "*")
 @Api(tags = "User controller api")
 public class UserController {
 
@@ -49,14 +53,17 @@ public class UserController {
     public UserResp createUser(@RequestBody UserDetailsRequestModel userDetailsRequestModel) throws IllegalAccessException {
 
 
-        if (entityUtil.isAnyFieldUnset(userDetailsRequestModel)) {
-            throw new UserServiceException(ErrorMessages.MISSING_REQUIRED_FIELD.getErrorMessage());
-        }
+//        if (entityUtil.isAnyFieldUnset(userDetailsRequestModel)) {
+//            throw new UserServiceException(ErrorMessages.MISSING_REQUIRED_FIELD.getErrorMessage());
+//        }
 //        BeanUtils.copyProperties(userDetailsRequestModel, userDto);
         UserDto userDto = new ModelMapper().map(userDetailsRequestModel, UserDto.class);
         UserDto createdUser = userService.createUser(userDto);
 //        BeanUtils.copyProperties(createdUser, returnValue);
-        UserResp returnValue = new ModelMapper().map(createdUser, UserResp.class);
+        UserResp returnValue = null;
+        if(createdUser != null){
+            returnValue = new ModelMapper().map(createdUser, UserResp.class);
+        }
         return returnValue;
     }
 
@@ -204,8 +211,10 @@ public class UserController {
     }
 
     //Get the email verification for user sign up
+    @ApiOperation(value = "Verify the user's email address",
+            notes = "Verify the user's email address for registration.")
     @GetMapping(value = "/email_verification", produces = MediaType.APPLICATION_JSON_VALUE)
-    @CrossOrigin("*")
+//    @CrossOrigin("*")
     public OperationStatusModel verifyEmailToken(@RequestParam("token") String token){
         OperationStatusModel result = new OperationStatusModel();
         result.setOperation(Operation.VERIFY_EMAIL.name());
@@ -215,4 +224,44 @@ public class UserController {
 
         return result;
     }
+
+    // check if the user's email is valid or not, if the email is correct, send an email to the user for reset password
+    @ApiOperation(value = "Send the password reset request link to the user's email ",
+            notes = "Verify if the user's email address is valid for requesting the reset passwprd service.")
+    @PostMapping(value = "/reset_password_request", produces = MediaType.APPLICATION_JSON_VALUE)
+    public OperationStatusModel resetPasswordRequest(@RequestBody ResetPasswordRequestModel email){
+        OperationStatusModel result = new OperationStatusModel();
+        result.setOperation(Operation.RESET_PASSWORD_REQUEST.name());
+        result.setOperationResult(RequestOperationStatus.FAILED.name());
+
+        boolean validUserEmail = userService.isValidEmailForResetPassword(email.getEmail());
+
+        if(validUserEmail){
+            result.setOperationResult(RequestOperationStatus.SUCCESS.name());
+        }
+        return result;
+    }
+
+
+    @ApiOperation(value = "The reset password service",
+            notes = "Reset the user's password")
+    @PostMapping(value = "/reset_password", produces = MediaType.APPLICATION_JSON_VALUE)
+    public OperationStatusModel resetPassword(@RequestBody ResetPasswordModel resetPasswordModel) throws IllegalAccessException {
+        OperationStatusModel result = new OperationStatusModel();
+        result.setOperation(Operation.RESET_PASSWORD.name());
+        result.setOperationResult(RequestOperationStatus.FAILED.name());
+
+        if(!entityUtil.isAnyFieldUnset(resetPasswordModel)){
+            boolean validResetPasswordToken = userService.isValidResetPasswordToken(resetPasswordModel.getToken(), resetPasswordModel.getPassword());
+            if (validResetPasswordToken){
+                result.setOperationResult(RequestOperationStatus.SUCCESS.name());
+            }
+        }
+
+        return result;
+
+    }
+
+
+
 }

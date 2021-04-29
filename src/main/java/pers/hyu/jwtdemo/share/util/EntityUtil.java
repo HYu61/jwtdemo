@@ -30,13 +30,13 @@ public class EntityUtil {
     }
 
     /**
-     * Generate the email token for user sign up verification
+     * Generate the token for user sign up verification
      * @param userId
      * @return
      */
-    public String generateEmailToken(String userId) {
+    public String generateToken(String userId, Long expirationTimeInMillSecond) {
         String emailToken = Jwts.builder().setSubject(userId)
-                .setExpiration(new Date(System.currentTimeMillis() + SecurityConstants.EXPIRATION_TIME))
+                .setExpiration(new Date(System.currentTimeMillis() + expirationTimeInMillSecond))
                 .signWith(SignatureAlgorithm.HS512, SecurityConstants.getTokenSecret())
                 .compact();
         return emailToken;
@@ -56,6 +56,15 @@ public class EntityUtil {
 //        Date now = new Date();
         return emailTokenExpirationDate.before(new Date());
 
+    }
+
+    public String getTokenSubject(String token){
+        String subject = Jwts.parser()
+                .setSigningKey(SecurityConstants.getTokenSecret())
+                .parseClaimsJws(token)
+                .getBody()
+                .getSubject();
+        return subject;
     }
 
     

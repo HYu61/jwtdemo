@@ -1,12 +1,10 @@
 package pers.hyu.jwtdemo.service.impl;
 
 import org.modelmapper.ModelMapper;
-import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -17,13 +15,17 @@ import org.springframework.transaction.annotation.Transactional;
 import pers.hyu.jwtdemo.exception.ErrorMessages;
 import pers.hyu.jwtdemo.exception.UserServiceException;
 import pers.hyu.jwtdemo.io.entity.UserEntity;
+import pers.hyu.jwtdemo.io.entity.UserResetPasswordToken;
 import pers.hyu.jwtdemo.io.repository.UserRepository;
+import pers.hyu.jwtdemo.io.repository.UserResetPasswordTokenRepository;
+import pers.hyu.jwtdemo.security.SecurityConstants;
 import pers.hyu.jwtdemo.service.UserService;
 import pers.hyu.jwtdemo.share.dto.AddressDto;
 import pers.hyu.jwtdemo.share.dto.UserDto;
 import pers.hyu.jwtdemo.share.util.AmazonSES;
 import pers.hyu.jwtdemo.share.util.EntityUtil;
 
+import javax.jws.WebParam;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -32,6 +34,8 @@ public class UserServiceImpl implements UserService {
     @Autowired
     UserRepository userRepository;
 
+    @Autowired
+    UserResetPasswordTokenRepository userResetPasswordTokenRepository;
     @Autowired
     EntityUtil entityUtil;
 
@@ -47,19 +51,20 @@ public class UserServiceImpl implements UserService {
             throw new UserServiceException(ErrorMessages.RECORD_ALREADY_EXISTS.getErrorMessage());
         }
 //        UserEntity newUserEntity = new UserEntity();
-        for (int i = 0; i < userDto.getAddressList().size(); i++) {
+        if(userDto.getAddressList() != null)        for (int i = 0; i < userDto.getAddressList().size(); i++) {
             AddressDto addressDto = userDto.getAddressList().get(i);
             addressDto.setAddressId(entityUtil.generateId(30));
             addressDto.setUserDetail(userDto);
             userDto.getAddressList().set(i, addressDto);
         }
 
+
         String userId = entityUtil.generateId(30);
         userDto.setUserId(userId);
         userDto.setEncryptedPassword(bCryptPasswordEncoder.encode(userDto.getPassword()));
 
         // set email token for user sign up and later for verify
-        userDto.setEmailVerificationToken(entityUtil.generateEmailToken(userId));
+        userDto.setEmailVerificationToken(entityUtil.generateToken(userId, SecurityConstants.SIGN_UP_EMAIL_EXPIRATION_TIME ));
         userDto.setEmailVerificationStatus(false);
 //        BeanUtils.copyProperties(userDto, newUserEntity);
 
@@ -70,7 +75,12 @@ public class UserServiceImpl implements UserService {
 //        BeanUtils.copyProperties(storedUser, newUserDto);
 
         // send the email verify email
-        new AmazonSES().sendVerifyEmail(userDto);
+        try {
+            new AmazonSES().sendVerifyEmail(userDto);
+        } catch (Exception e) {
+            e.printStackTrace();
+            newUserDto = null;
+        }
         return newUserDto;
     }
 
@@ -163,6 +173,40 @@ public class UserServiceImpl implements UserService {
             userRepository.save(userEntity); // change the verify status to true
             return true;
         }
+        return false;
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED)
+    @Override
+    public boolean isValidEmailForResetPassword(String email) {
+        UserEntity userEntity = userRepository.findByEmail(email);
+
+        // generate the token for reset password email and store it into DB
+        if(userEntity != null){
+            String resetPasswordToken = entityUtil.generateToken(userEntity.getUserId(), SecurityConstants.RESET_PASSWORD_EMAIL_EXPIRATION_TIME);
+            UserResetPasswordToken userResetPasswordToken = new UserResetPasswordToken();
+            userResetPasswordToken.setToken(resetPasswordToken);
+            userResetPasswordToken.setUserEntity(userEntity);
+            userResetPasswordTokenRepository.save(userResetPasswordToken);
+
+            // send the email that contain the token to the user
+            new AmazonSES().sendResetPasswordEmail(userEntity.getFirstName(), userEntity.getEmail(),resetPasswordToken);
+
+        }
+        return userEntity != null;
+    }
+
+    @Transactional(propagation = Propagation.REQUIRED)
+    @Override
+    public boolean isValidResetPasswordToken(String token, String password) {
+        if(!entityUtil.emailTokenHasExpired(token)){
+            UserEntity userEntity = userRepository.findByUserId(entityUtil.getTokenSubject(token));
+            userEntity.setEncryptedPassword(bCryptPasswordEncoder.encode(password));
+
+            userResetPasswordTokenRepository.deleteAllByUserEntity(userEntity);
+            return true;
+
+        };
         return false;
     }
 
